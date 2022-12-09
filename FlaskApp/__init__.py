@@ -9,6 +9,7 @@ from bson import ObjectId
 from azure.identity import DefaultAzureCredential
 from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient,BlobBlock
 import os,uuid
+import tempfile
 
 app = Flask(__name__)
 CORS(app)
@@ -73,16 +74,16 @@ def upload():
     files=request.files
     if video.find_one( {'title':data["title"] })!=None:
         return make_response(jsonify( {'fail':"Upload fail.Please Change your title"}), 400)
-    local_path = "./file/"
+    tempFilePath = tempfile.gettempdir()
     vid=files["video"]
     videoName=vid.filename
-    vid.save("./file/"+videoName)
-    video_path = os.path.join(local_path, vid.filename)
+    vid.save(tempFilePath+videoName)
+    video_path = os.path.join(tempFilePath, vid.filename)
     video_client = blob_service_client.get_blob_client(container="havideoassvideo", blob=videoName)
     cover=files["cover"]
     coverName=cover.filename
-    cover.save("./file/"+coverName)
-    cover_path = os.path.join(local_path, cover.filename)
+    cover.save(tempFilePath+coverName)
+    cover_path = os.path.join(tempFilePath, cover.filename)
     cover_client = blob_service_client.get_blob_client(container="havideoassimg", blob=coverName)
     try:
         block_list=[]
@@ -96,10 +97,10 @@ def upload():
                 video_client.stage_block(block_id=blk_id,data=read_data)
                 block_list.append(BlobBlock(block_id=blk_id))
         video_client.commit_block_list(block_list)
-        os.remove("./file/"+videoName)
+        os.remove(tempFilePath+videoName)
         with open(file=cover_path, mode="rb") as coverdata:
             cover_client.upload_blob(coverdata)
-        os.remove("./file/"+coverName)
+        os.remove(tempFilePath+coverName)
         coverurl="https://havideoassblob.blob.core.windows.net/havideoassimg/"+coverName
         videourl="https://havideoassblob.blob.core.windows.net/havideoassvideo/"+videoName
         info={
@@ -117,8 +118,8 @@ def upload():
         return make_response(jsonify( {'success':"Upload success."}), 200)
     except:
         try:
-            os.remove("./file/"+videoName)
-            os.remove("./file/"+coverName)
+            os.remove(tempFilePath+videoName)
+            os.remove(tempFilePath+coverName)
         finally:
             return make_response(jsonify( {'message':"Upload fail.Please Change your file name"}), 400)
 

@@ -92,7 +92,7 @@ def upload():
             while True:
                 read_data = videodata.read(chunk_size)
                 if not read_data:
-                    break # done
+                    break
                 blk_id = str(uuid.uuid4())
                 video_client.stage_block(block_id=blk_id,data=read_data)
                 block_list.append(BlobBlock(block_id=blk_id))

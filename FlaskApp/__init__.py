@@ -97,10 +97,8 @@ def upload():
                 video_client.stage_block(block_id=blk_id,data=read_data)
                 block_list.append(BlobBlock(block_id=blk_id))
         video_client.commit_block_list(block_list)
-        os.remove(tempFilePath+videoName)
         with open(file=cover_path, mode="rb") as coverdata:
             cover_client.upload_blob(coverdata)
-        os.remove(tempFilePath+coverName)
         coverurl="https://havideoassblob.blob.core.windows.net/havideoassimg/"+coverName
         videourl="https://havideoassblob.blob.core.windows.net/havideoassvideo/"+videoName
         info={

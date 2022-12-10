@@ -12,3 +12,4 @@ datetime
 azure.functions
 azure.identity
 azure.storage.blob
+functools

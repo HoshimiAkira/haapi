@@ -10,6 +10,7 @@ from azure.identity import DefaultAzureCredential
 from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient,BlobBlock
 import os,uuid
 import tempfile
+from functools import wraps
 
 app = Flask(__name__)
 CORS(app)
@@ -26,6 +27,24 @@ def index():
     return (
         "hello world"
     )
+
+def jwt_required(func):
+    @wraps(func)
+    def jwt_required_wrapper(*args, **kwargs):
+        token = request.args.get('token')
+        if not token:
+            return jsonify( \
+            {'message' : 'Token is missing'}), 401
+        try:
+            data = jwt.decode(token, \
+            app.config['SECRET_KEY'])
+        except:
+            return jsonify( \
+            {'message' : 'Token is invalid'}), 401
+        return func(*args, **kwargs)
+
+    return jwt_required_wrapper
+
 @app.route('/api/v1.0/login', methods=['POST'])
 def login():
     data=request.form
@@ -36,7 +55,7 @@ def login():
         if user is not None:
             if bcrypt.checkpw(bytes(password, 'UTF-8'), user["password"]):
                 token = jwt.encode( {'user' : user["email"],'identity' : user["identity"], 'exp' : datetime.datetime.utcnow() + datetime.timedelta(minutes=30)}, app.config['SECRET_KEY'])
-                return make_response(jsonify( {'token':token,'username':user["username"],'identity':user["identity"]}), 200)
+                return make_response(jsonify( {'token':token,'username':user["username"],'identity':user["identity"],'id':str(user["_id"])}), 200)
             else:
                 return make_response(jsonify( {'message':'Bad password'}), 401)
         else:
@@ -68,7 +87,7 @@ def register():
     users.insert_one(info)
     return make_response(jsonify( {'success':"Sign up success."}), 200)
 
-@app.route('/api/v1.0/upload', methods=['POST'])
+@app.route('/api/v1.0/video', methods=['POST'])
 def upload():
     data=request.form
     files=request.files
@@ -165,6 +184,17 @@ def show_one_video(id):
         return make_response( jsonify( data_to_return ), 200 )
     else:
         return make_response( jsonify( {"error" : "Invalid video ID"} ), 404 )
+    
+@app.route("/api/v1.0/video/<string:id>/comment", methods=["POST"])
+def add_comment(id):
+    new_comment = {
+        "_id" : ObjectId(),
+        "user_id" : request.form["user_id"],
+        "comment" : request.form["comment"],
+        "mark" : request.form["mark"]
+    }
+    videos.update_one( { "_id" : ObjectId(id) }, { "$push": { "comment" : new_comment } } )
+    return make_response( jsonify( { "message" : "Add Comment Success" } ), 201 )
 
 
 

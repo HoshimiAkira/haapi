@@ -15,7 +15,7 @@ app = Flask(__name__)
 CORS(app)
 client = MongoClient("mongodb://havideomongo:c9y9p7KBDdwdlyYmkVKu5Y2v0qAoySaPhW8rcu6kFHRijIYTLjtes4NlAe7AJOzWq9em7cXhOHUXACDbdofrzQ==@havideomongo.mongo.cosmos.azure.com:10255/?ssl=true&retrywrites=false&replicaSet=globaldb&maxIdleTimeMS=120000&appName=@havideomongo@")
 db = client.havideo
-video=db.video
+videos=db.video
 users=db.users
 app.config['SECRET_KEY'] = 'zsecret'
 account_url = "https://havideoassblob.blob.core.windows.net"
@@ -72,7 +72,7 @@ def register():
 def upload():
     data=request.form
     files=request.files
-    if video.find_one( {'title':data["title"] })!=None:
+    if videos.find_one( {'title':data["title"] })!=None:
         return make_response(jsonify( {'fail':"Upload fail.Please Change your title"}), 400)
     tempFilePath = tempfile.gettempdir()
     vid=files["video"]
@@ -109,17 +109,50 @@ def upload():
             "video":videourl,
             "cover":coverurl,
             "comment":[],
+            "producer":data["producer"],
             "views":0,
             "collect":0
         }
-        video.insert_one(info)
+        videos.insert_one(info)
         return make_response(jsonify( {'success':"Upload success."}), 200)
     except:
             return make_response(jsonify( {'message':"Upload fail.Please Change your file name"}), 400)
 
-    
+@app.route("/api/v1.0/video", methods=["GET"])
+def show_all_videos():
+    page_num, page_size = 1, 9
+    if request.args.get('pn'):
+        page_num = int(request.args.get('pn'))
+    if request.args.get('ps'):
+        page_size = int(request.args.get('ps'))
+    page_start = (page_size * (page_num - 1))
+    data_to_return = []
+    showdata=[]
+    for video in videos.find().sort("_id",-1):
+        video["_id"] = str(video["_id"])
+        showdata.append(video)
+    title=""
+    if request.args.get("title")!="":
+        title=request.args.get("title")
+        showdata=title_filter(showdata,title)
+    for video in showdata[page_start:page_start+page_size]:
+        data={
+            "id":video["_id"],
+            "picSrc":video["cover"],
+            "title":video["title"]
+        }
+        
+        data_to_return.append(data)
+            
 
+    return make_response( jsonify(data_to_return), 200 )
 
+def title_filter(showdata,title):
+    data_to_return = []
+    for video in showdata:
+        if video["title"].lower().find(title.lower())!=-1:
+            data_to_return.append(video)
+    return data_to_return
 
 
 
@@ -144,6 +177,10 @@ def testregister():
         bcrypt.hashpw(info["password"], \
         bcrypt.gensalt())
     users.insert_one(info)
+    return make_response(jsonify( {'token':"success"}), 200)
+@app.route('/api/v1.0/fix', methods=['GET'])
+def fix(): 
+    videos.update_many({},{"$set":{"producer":"Unknown Producer"}},upsert=True)
     return make_response(jsonify( {'token':"success"}), 200)
 
     

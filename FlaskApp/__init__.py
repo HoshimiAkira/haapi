@@ -155,6 +155,20 @@ def show_all_videos():
 
     return make_response( jsonify(data_to_return), 200 )
 
+@app.route("/api/v1.0/video/<string:id>", methods=["GET"])
+def show_one_video(id):
+    data_to_return=[]
+    video = videos.find_one({'_id':ObjectId(id)})
+    if video is not None:
+        video['_id'] = str(video['_id'])
+        data_to_return.append(video)
+        return make_response( jsonify( data_to_return ), 200 )
+    else:
+        return make_response( jsonify( {"error" : "Invalid video ID"} ), 404 )
+
+
+
+
 def title_filter(showdata,title):
     data_to_return = []
     for video in showdata:

@@ -131,10 +131,18 @@ def show_all_videos():
     for video in videos.find().sort("_id",-1):
         video["_id"] = str(video["_id"])
         showdata.append(video)
-    title=""
     if request.args.get("title")!="":
         title=request.args.get("title")
         showdata=title_filter(showdata,title)
+    if request.args.get("publisher")!="":
+        publisher=request.args.get("publisher")
+        showdata=publisher_filter(showdata,publisher)
+    if request.args.get("producer")!="":
+        producer=request.args.get("producer")
+        showdata=producer_filter(showdata,producer)
+    if request.args.get("genre")!="":
+        genre=request.args.get("genre")
+        showdata=genre_filter(showdata,genre)
     for video in showdata[page_start:page_start+page_size]:
         data={
             "id":video["_id"],
@@ -151,6 +159,28 @@ def title_filter(showdata,title):
     data_to_return = []
     for video in showdata:
         if video["title"].lower().find(title.lower())!=-1:
+            data_to_return.append(video)
+    return data_to_return
+
+
+def publisher_filter(showdata,publisher):
+    data_to_return = []
+    for video in showdata:
+        if publisher.lower()in video["publisher"].lower() :
+            data_to_return.append(video)
+    return data_to_return
+
+def producer_filter(showdata,producer):
+    data_to_return = []
+    for video in showdata:
+        if  producer.lower() in video["producer"].lower():
+            data_to_return.append(video)
+    return data_to_return
+
+def genre_filter(showdata,genre):
+    data_to_return = []
+    for video in showdata:
+        if genre.lower() in video["genre"].lower():
             data_to_return.append(video)
     return data_to_return
 

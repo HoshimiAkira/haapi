@@ -89,6 +89,7 @@ def register():
     return make_response(jsonify( {'success':"Sign up success."}), 200)
 
 @app.route('/api/v1.0/video', methods=['POST'])
+@jwt_required
 def upload():
     data=request.form
     files=request.files
@@ -139,6 +140,7 @@ def upload():
         return make_response(jsonify( {'message':"Upload fail.Please Change your file name"}), 400)
 
 @app.route("/api/v1.0/video", methods=["GET"])
+@jwt_required
 def show_all_videos():
     page_num, page_size = 1, 9
     if request.args.get('pn'):
@@ -179,6 +181,7 @@ def show_all_videos():
     return make_response( jsonify(data_to_return), 200 )
 
 @app.route("/api/v1.0/video/<string:id>", methods=["GET"])
+@jwt_required
 def show_one_video(id):
     data_to_return=[]
     comment_to_return=[]
@@ -203,6 +206,7 @@ def show_one_video(id):
         return make_response( jsonify( {"message" : "Invalid video ID"} ), 404 )
     
 @app.route("/api/v1.0/video/<string:id>/comment", methods=["POST"])
+@jwt_required
 def add_comment(id):
     video = videos.find_one({'_id':ObjectId(id)})
     if video is not None:
@@ -222,6 +226,7 @@ def add_comment(id):
         return make_response( jsonify( {"message" : "Invalid video ID"} ), 404 )
 
 @app.route("/api/v1.0/video/<string:id>/subtitle", methods=["POST"])
+@jwt_required
 def add_subtitle(id):
     video = videos.find_one({'_id':ObjectId(id)})
     if video is not None:

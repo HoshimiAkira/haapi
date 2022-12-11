@@ -50,7 +50,7 @@ def logincheck():
         return jsonify( {'message' : 'Token is missing'}), 401
     try:
         data = jwt.decode(token, app.config['SECRET_KEY'],algorithms='HS256')
-        return make_response(jsonify( {'message':'Token'}), 401)
+        return make_response(jsonify( {'message':'Token'}), 200)
     except:
         return jsonify( {'message' : 'Token is invalid'}), 401
 

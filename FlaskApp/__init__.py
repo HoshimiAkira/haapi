@@ -44,7 +44,7 @@ def jwt_required(func):
     return jwt_required_wrapper
 
 @app.route('/api/v1.0/logincheck', methods=['GET'])
-def login():
+def logincheck():
     token = request.args.get('token')
     if not token:
         return jsonify( {'message' : 'Token is missing'}), 401

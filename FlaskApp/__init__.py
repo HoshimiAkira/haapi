@@ -34,14 +34,11 @@ def jwt_required(func):
     def jwt_required_wrapper(*args, **kwargs):
         token = request.args.get('token')
         if not token:
-            return jsonify( \
-            {'message' : 'Token is missing'}), 401
+            return jsonify( {'message' : 'Token is missing'}), 401
         try:
-            data = jwt.decode(token, \
-            app.config['SECRET_KEY'])
+            data = jwt.decode(token, app.config['SECRET_KEY'],algorithms='HS256')
         except:
-            return jsonify( \
-            {'message' : 'Token is invalid'}), 401
+            return jsonify( {'message' : 'Token is invalid'}), 401
         return func(*args, **kwargs)
 
     return jwt_required_wrapper

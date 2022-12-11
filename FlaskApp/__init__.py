@@ -12,6 +12,7 @@ from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient,Bl
 import os,uuid
 import tempfile
 from functools import wraps
+import time
 
 app = Flask(__name__)
 CORS(app)
@@ -129,7 +130,8 @@ def upload():
             "comment":[],
             "producer":data["producer"],
             "views":0,
-            "collect":0
+            "collect":0,
+            "date":date.today().isoformat()
         }
         videos.insert_one(info)
         return make_response(jsonify( {'success':"Upload success."}), 200)
@@ -188,12 +190,15 @@ def show_one_video(id):
     if request.args.get('ps'):
         page_size = int(request.args.get('ps'))
     page_start = (page_size * (page_num - 1))
-    video = videos.find_one({'_id':ObjectId(id)})
+    try:
+        video = videos.find_one({'_id':ObjectId(id)})
+    except:
+        return make_response( jsonify( {"message" : "Invalid video ID"} ), 404 )
     if video is not None:
         videos.update_one( { "_id" : ObjectId(id) }, { "$set": { "views" : video["views"]+1 } } )
         video['_id'] = str(video['_id'])
         video["views"]+=1
-        for comment in video["comment"][page_start:page_start+page_size]:
+        for comment in video["comment"]:
             comment["_id"]=str(comment["_id"])
             comment_to_return.append(comment)
         video["comment"]=comment_to_return
@@ -213,6 +218,7 @@ def add_comment(id):
             "username" : request.form["username"],
             "comment" : request.form["comment"],
             "mark" : request.form["mark"],
+            "date":date.today().isoformat()
         }
         print(new_comment["user_id"])
         print(new_comment["comment"])
@@ -245,6 +251,50 @@ def add_subtitle(id):
     else:
         return make_response( jsonify( {"message" : "Invalid video ID"} ), 404 )
 
+@app.route("/api/v1.0/video/<string:id>", methods=["DELETE"])
+@jwt_required
+def delete_video(id):
+    try:
+        video = videos.find_one({'_id':ObjectId(id)})
+    except:
+        response = jsonify({"message" : "Invalid video ID"})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Methods', 'DELETE')
+        return make_response(  response ), 404 
+    video = videos.find_one({'_id':ObjectId(id)})
+    if video is not None:
+        videoName= video["video"].replace("https://havideoassblob.blob.core.windows.net/havideoassvideo/","")
+        video_client = blob_service_client.get_blob_client(container="havideoassvideo", blob=videoName)
+        coverName=video["cover"].replace("https://havideoassblob.blob.core.windows.net/havideoassimg/","")
+        cover_client = blob_service_client.get_blob_client(container="havideoassimg", blob=coverName)
+        video_client.delete_blob()
+        cover_client.delete_blob()
+        result = videos.delete_one( { "_id" : ObjectId(id) } )
+        if result.deleted_count == 1:
+            return make_response( {"success":"delete success"}, 204 )
+    else:
+        response = jsonify({"message" : "Invalid video ID"})
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        response.headers.add('Access-Control-Allow-Methods', 'DELETE')
+        return make_response(  response ), 404 
+
+@app.route("/api/v1.0/video/<string:vid>/comment/<string:cid>", methods=["DELETE"])
+@jwt_required
+def delete_comment(vid, cid):
+    
+    try:
+        video = videos.find_one({'_id':ObjectId(vid)})
+        comment=ObjectId(cid)
+    except:
+        response = jsonify({"message" : "Invalid video ID"})
+        response.headers.add('Access-Control-Allow-Methods', 'DELETE')
+        response.headers.add('Access-Control-Allow-Origin', '*')
+        return make_response(  response ), 404 
+    videos.update_one( \
+    { "_id" : ObjectId(vid) }, \
+    { "$pull" : { "comment" : \
+    { "_id" : ObjectId(cid) } } } )
+    return make_response( jsonify( {"success":"delete success"} ), 204)
 
 
 def title_filter(showdata,title):
@@ -281,34 +331,6 @@ def genre_filter(showdata,genre):
 
 
 
-
-
-
-
-
-@app.route('/api/v1.0/addStafff', methods=['GET'])
-def testregister(): 
-    info={
-        "username" : "admin",
-        "password" : b"admin",
-        "email" : "Zhang-T5@ulster.ac.uk",
-        "identity":"admin",
-        "collectVideo":[]
-    }
-    info["password"] = \
-        bcrypt.hashpw(info["password"], \
-        bcrypt.gensalt())
-    users.insert_one(info)
-    return make_response(jsonify( {'token':"success"}), 200)
-@app.route('/api/v1.0/fix', methods=['GET'])
-def fix(): 
-    fix=date.today().isoformat()
-    videos.update_many({},{"$set":{"date":fix}},upsert=True)
-    for video in videos.find().sort("_id",-1):
-        for comment in video["comment"]:
-            comment["date"]=fix
-        videos.update_one({"_id" : video["_id"]},{"$set":{"comment":video["comment"]}},upsert=True)
-    return make_response(jsonify( {'token':"success"}), 200)
 
     
 

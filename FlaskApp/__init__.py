@@ -70,18 +70,27 @@ def register():
         return make_response(jsonify({'message':'Email have been used'}), 401)
     username=data["username"]
     password=data["password"]
-    
+    confirm=data["confirm"]
     password=password.encode('UTF-8')
     password=bcrypt.hashpw(password, \
         bcrypt.gensalt())
-
-    info={
-        "username":username,
-        "password":password,
-        "email":email,
-        "identity":"user",
-        "collectVideo":[]
-    }
+    if(confirm!="up"):
+        info={
+            "username":username,
+            "password":password,
+            "email":email,
+            "identity":"user",
+            "collectVideo":[]
+        }
+    else:
+        info={
+            "username":username,
+            "password":password,
+            "email":email,
+            "identity":"up",
+            "collectVideo":[]
+        }
+    
 
     users.insert_one(info)
     return make_response(jsonify( {'success':"Sign up success."}), 200)
@@ -198,6 +207,14 @@ def show_one_video(id):
         videos.update_one( { "_id" : ObjectId(id) }, { "$set": { "views" : video["views"]+1 } } )
         video['_id'] = str(video['_id'])
         video["views"]+=1
+        video["check"]=False
+        uid=request.args.get("uid")
+        print(uid)
+        user=users.find_one({'_id':ObjectId(uid)})
+        for col in user["collectVideo"]:
+            if(str(col)==video['_id']):
+                video["check"]=True
+                break
         for comment in video["comment"]:
             comment["_id"]=str(comment["_id"])
             comment_to_return.append(comment)
@@ -295,6 +312,77 @@ def delete_comment(vid, cid):
     { "$pull" : { "comment" : \
     { "_id" : ObjectId(cid) } } } )
     return make_response( jsonify( {"success":"delete success"} ), 204)
+
+@app.route("/api/v1.0/video/<string:id>", methods=["POST"])
+@jwt_required
+def add_collection(id):
+    video = videos.find_one({'_id':ObjectId(id)})
+    if video is not None:
+        collectNum=video["collect"]
+        uid=request.form["id"]
+        videos.update_one( { "_id" : ObjectId(id) }, { "$set": { "collect" : collectNum+1 } } )
+        users.update_one( { "_id" : ObjectId(uid) }, { "$push": { "collectVideo" : ObjectId(id) } } )
+        return make_response( jsonify( { "success" : "Add Collect Success" } ), 201 )
+    else:
+        return make_response( jsonify( {"message" : "Invalid video ID"} ), 404 )
+
+@app.route("/api/v1.0/collection", methods=["GET"])
+@jwt_required
+def show_all_collection():
+    page_num, page_size = 1, 9
+    if request.args.get('pn'):
+        page_num = int(request.args.get('pn'))
+    if request.args.get('ps'):
+        page_size = int(request.args.get('ps'))
+    page_start = (page_size * (page_num - 1))
+    data_to_return = []
+    showdata=[]
+    uid=request.args.get('id')
+    user=users.find_one({'_id':ObjectId(uid)})
+    for video in videos.find().sort("_id",-1):
+        for col in user["collectVideo"]:
+            if(str(col)==str(video["_id"])):
+                video["_id"] = str(video["_id"])
+                showdata.append(video)
+    if request.args.get("title")!="":
+        title=request.args.get("title")
+        showdata=title_filter(showdata,title)
+    if request.args.get("publisher")!="":
+        publisher=request.args.get("publisher")
+        showdata=publisher_filter(showdata,publisher)
+    if request.args.get("producer")!="":
+        producer=request.args.get("producer")
+        showdata=producer_filter(showdata,producer)
+    if request.args.get("genre")!="":
+        genre=request.args.get("genre")
+        showdata=genre_filter(showdata,genre)
+    for video in showdata[page_start:page_start+page_size]:
+        data={
+            "id":video["_id"],
+            "picSrc":video["cover"],
+            "title":video["title"],
+            "views":video["views"],
+            "collect":video["collect"],
+            "date":video["date"]
+        }
+        
+        data_to_return.append(data)
+            
+
+    return make_response( jsonify(data_to_return), 200 )
+
+@app.route("/api/v1.0/video/<string:id>/cancel", methods=["POST"])
+@jwt_required
+def cancel_collection(id):
+    video = videos.find_one({'_id':ObjectId(id)})
+    if video is not None:
+        collectNum=video["collect"]
+        uid=request.form["id"]
+        videos.update_one( { "_id" : ObjectId(id) }, { "$set": { "collect" : collectNum-1 } } )
+        users.update_one( { "_id" : ObjectId(uid) }, { "$pull": { "collectVideo" : ObjectId(id) } } )
+        return make_response( jsonify( { "success" : "Cancel Collect Success" } ), 201 )
+    else:
+        return make_response( jsonify( {"message" : "Invalid video ID"} ), 404 )
 
 
 def title_filter(showdata,title):
